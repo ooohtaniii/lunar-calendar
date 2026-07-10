@@ -646,7 +646,7 @@ function updateToday() {
   document.getElementById('headerDate').textContent = formatDate(now);
 
   const phase = moonPhase(now);
-  const phaseInfo = getPhaseName(now);
+  const phaseInfo = getPhaseName(phase);
   const sign = getZodiacSign(now);
   const fertility = fertilityLabel(sign.fertile);
 
@@ -689,7 +689,7 @@ function renderCalendar() {
   for (let d = 1; d <= lastDay.getDate(); d++) {
     const date = new Date(year, month, d);
     const phase = moonPhase(date);
-    const phaseInfo = getPhaseName(date);
+    const phaseInfo = getPhaseName(phase);
 
     const el = document.createElement('div');
     el.className = 'cal-day';
@@ -709,7 +709,8 @@ function selectDay(date) {
   selectedDate = date;
   renderCalendar();
 
-  const phaseInfo = getPhaseName(date);
+  const phase = moonPhase(date);
+  const phaseInfo = getPhaseName(phase);
   const sign = getZodiacSign(date);
   document.getElementById('selectedDayTitle').innerHTML =
     `${phaseInfo.emoji} ${date.getDate()} ${MONTHS[date.getMonth()]} — ${phaseInfo.name}`;
