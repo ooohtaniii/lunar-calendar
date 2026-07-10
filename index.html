@@ -392,9 +392,13 @@
 
 <script>
 /* =========================================================
-   АСТРОНОМИЧЕСКИЕ РАСЧЁТЫ (без внешних API)
-   Основано на алгоритмах Жана Мёсауса
+   АСТРОНОМИЧЕСКИЕ РАСЧЁТЫ ДЛЯ МОСКВЫ
    ========================================================= */
+
+// Координаты Москвы
+const MOSCOW_LAT = 55.7558;
+const MOSCOW_LON = 37.6173;
+const MOSCOW_TZ = 3; // UTC+3
 
 // Синодический месяц (средняя длительность)
 const SYNODIC_MONTH = 29.53058867;
@@ -403,14 +407,21 @@ const SIDEREAL_MONTH = 27.321661;
 // Опорная точка: известное новолуние (2000-01-06 18:14 UTC)
 const KNOWN_NEW_MOON_JD = 2451550.1;
 
-// Преобразование даты в юлианскую дату
+// Получить московское время из любого Date
+function getMoscowTime(date = new Date()) {
+  const utc = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utc + 3600000 * MOSCOW_TZ);
+}
+
+// Преобразование даты в юлианскую дату (для московского времени)
 function dateToJD(date) {
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth() + 1;
-  const d = date.getUTCDate() +
-            date.getUTCHours()/24 +
-            date.getUTCMinutes()/1440 +
-            date.getUTCSeconds()/86400;
+  const msk = getMoscowTime(date);
+  const y = msk.getUTCFullYear();
+  const m = msk.getUTCMonth() + 1;
+  const d = msk.getUTCDate() +
+            msk.getUTCHours()/24 +
+            msk.getUTCMinutes()/1440 +
+            msk.getUTCSeconds()/86400;
   let Y = y, M = m;
   if (M <= 2) { Y--; M += 12; }
   const A = Math.floor(Y / 100);
@@ -455,13 +466,9 @@ function lunarDay(date) {
 function moonLongitude(date) {
   const jd = dateToJD(date);
   const T = (jd - 2451545.0) / 36525;
-  // Средняя longitude Луны
   let L0 = 218.316 + 481267.881 * T;
-  // Аномалия
   const M = (134.9 + 477198.85 * T) % 360;
-  // Элонгация от Солнца
   const D = (297.85 + 445267.11 * T) % 360;
-  // Основные поправки (упрощённо)
   let lon = L0
           + 6.29 * Math.sin(M * Math.PI/180)
           - 1.27 * Math.sin((2*D - M) * Math.PI/180)
@@ -499,16 +506,42 @@ function fertilityLabel(fertile) {
 }
 
 /* =========================================================
+   ВОСХОД И ЗАХОД ЛУНЫ ДЛЯ МОСКВЫ
+   ========================================================= */
+function moonRiseSet(date) {
+  const msk = getMoscowTime(date);
+  const jd = dateToJD(msk);
+  
+  // Упрощённый расчёт (без учёта рефракции и параллакса)
+  // Для точных расчётов нужна библиотека astronomy-engine
+  const age = moonAge(msk);
+  const phase = age / SYNODIC_MONTH;
+  
+  // Приблизительное время восхода/захода на основе фазы
+  // Новолуние: восход ~6:00, заход ~18:00
+  // Полнолуние: восход ~18:00, заход ~6:00
+  const riseHour = 6 + phase * 24;
+  const setHour = 18 + phase * 24;
+  
+  const formatTime = (h) => {
+    h = ((h % 24) + 24) % 24;
+    const hours = Math.floor(h);
+    const mins = Math.floor((h - hours) * 60);
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+  
+  return {
+    rise: formatTime(riseHour),
+    set: formatTime(setHour)
+  };
+}
+
+/* =========================================================
    РЕНДЕРИНГ ВИЗУАЛИЗАЦИИ ЛУНЫ (SVG)
    ========================================================= */
 function renderMoon(phase) {
-  // phase: 0 = новолуние, 0.5 = полнолуние
   const R = 45;
-  const cx = 50, cy = 50;
-  // Вычисляем "ширину" освещённой части
-  // Используем параметрическое представление терминатора
-  const illumination = Math.cos(phase * 2 * Math.PI); // от 1 до -1
-  // Рисуем Луну как два полукруга + эллипс терминатора
+  const illumination = Math.cos(phase * 2 * Math.PI);
   let svg = `<svg viewBox="0 0 100 100">
     <defs>
       <radialGradient id="moonGrad" cx="35%" cy="35%">
@@ -519,23 +552,17 @@ function renderMoon(phase) {
     <circle cx="50" cy="50" r="${R}" fill="#222" stroke="#555" stroke-width="0.5"/>`;
 
   if (phase < 0.5) {
-    // Растущая: освещена правая часть
     const rx = Math.abs(illumination) * R;
     if (phase < 0.25) {
-      // Серп растущий (освещено меньше половины справа)
       svg += `<path d="M 50 5 A 45 45 0 0 1 50 95 A ${rx} 45 0 0 0 50 5 Z" fill="url(#moonGrad)"/>`;
     } else {
-      // Больше половины справа
       svg += `<path d="M 50 5 A 45 45 0 0 1 50 95 A ${rx} 45 0 0 1 50 5 Z" fill="url(#moonGrad)"/>`;
     }
   } else {
-    // Убывающая: освещена левая часть
     const rx = Math.abs(illumination) * R;
     if (phase < 0.75) {
-      // Больше половины слева
       svg += `<path d="M 50 5 A 45 45 0 0 0 50 95 A ${rx} 45 0 0 0 50 5 Z" fill="url(#moonGrad)"/>`;
     } else {
-      // Серп убывающий
       svg += `<path d="M 50 5 A 45 45 0 0 0 50 95 A ${rx} 45 0 0 1 50 5 Z" fill="url(#moonGrad)"/>`;
     }
   }
@@ -553,7 +580,6 @@ function getRecommendations(date) {
   const fertility = fertilityLabel(sign.fertile);
   const recs = [];
 
-  // Общие рекомендации по фазе
   if (phaseInfo.type === 'new') {
     recs.push({ icon: '🚫', text: 'Не сажайте и не пересаживайте — Луна в покое.' });
     recs.push({ icon: '✂️', text: 'Хорошее время для санитарной обрезки и борьбы с вредителями.' });
@@ -565,13 +591,12 @@ function getRecommendations(date) {
     recs.push({ icon: '🍅', text: 'Пик концентрации соков — собирайте урожай.' });
     recs.push({ icon: '🫙', text: 'Отличное время для консервирования и заготовок.' });
     recs.push({ icon: '🚫', text: 'Не рекомендуется обрезка и посадка.' });
-  } else { // waning
+  } else {
     recs.push({ icon: '🥕', text: 'Соки идут к корням — сажайте корнеплоды и луковичные.' });
     recs.push({ icon: '🌳', text: 'Хорошо для посадки деревьев, кустарников, деления корней.' });
     recs.push({ icon: '✂️', text: 'Обрезка замедляет рост — идеальный момент.' });
   }
 
-  // Уточнения по знаку
   if (sign.fertile === 'high') {
     recs.push({ icon: '✨', text: `Луна в ${sign.name} — знак повышенной плодородности. Посевы дадут щедрый урожай.` });
   } else if (sign.fertile === 'low') {
@@ -638,22 +663,26 @@ calMonth.setDate(1);
 let selectedDate = null;
 
 function formatDate(d) {
-  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const msk = getMoscowTime(d);
+  return `${WEEKDAYS[msk.getDay()]}, ${msk.getDate()} ${MONTHS[msk.getMonth()]} ${msk.getFullYear()}`;
 }
 
 function updateToday() {
   const now = new Date();
-  document.getElementById('headerDate').textContent = formatDate(now);
+  const msk = getMoscowTime(now);
+  document.getElementById('headerDate').textContent = formatDate(now) + ' (МСК)';
 
   const phase = moonPhase(now);
   const phaseInfo = getPhaseName(phase);
   const sign = getZodiacSign(now);
   const fertility = fertilityLabel(sign.fertile);
+  const riseSet = moonRiseSet(now);
 
   document.getElementById('moonVisual').innerHTML = renderMoon(phase);
   document.getElementById('moonPhaseName').textContent = `${phaseInfo.emoji} ${phaseInfo.name}`;
-  document.getElementById('moonPhaseDesc').textContent =
-    `Освещено: ${Math.round(Math.abs(Math.cos(phase * Math.PI)) * 100)}%`;
+  document.getElementById('moonPhaseDesc').innerHTML = 
+    `Освещено: ${Math.round(Math.abs(Math.cos(phase * Math.PI)) * 100)}%<br>` +
+    `<span style="font-size:0.8rem;opacity:0.7;">Восход: ${riseSet.rise} | Заход: ${riseSet.set}</span>`;
   document.getElementById('lunarDay').textContent = lunarDay(now);
   document.getElementById('zodiacSign').textContent = `${sign.symbol} ${sign.name}`;
   document.getElementById('fertility').textContent = `${fertility.emoji} ${fertility.text}`;
@@ -665,19 +694,19 @@ function updateToday() {
 }
 
 function renderCalendar() {
-  const year = calMonth.getFullYear();
-  const month = calMonth.getMonth();
+  const msk = getMoscowTime(calMonth);
+  const year = msk.getFullYear();
+  const month = msk.getMonth();
   document.getElementById('calMonth').textContent = `${MONTHS_NOM[month]} ${year}`;
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  // Понедельник = 0
   let startWeekday = (firstDay.getDay() + 6) % 7;
 
   const container = document.getElementById('calDays');
   container.innerHTML = '';
 
-  const today = new Date();
+  const today = getMoscowTime(new Date());
   today.setHours(0,0,0,0);
 
   for (let i = 0; i < startWeekday; i++) {
@@ -779,7 +808,6 @@ setInterval(updateToday, 60000);
    PWA: Service Worker и установка
    ========================================================= */
 if ('serviceWorker' in navigator) {
-  // Регистрируем SW, если файл есть
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
@@ -790,6 +818,22 @@ window.addEventListener('beforeinstallprompt', (e) => {
   document.getElementById('installHint').classList.add('show');
   setTimeout(() => document.getElementById('installHint').classList.remove('show'), 8000);
 });
+
+/* =========================================================
+   ОТЛАДКА
+   ========================================================= */
+function debugMoon() {
+  const today = new Date();
+  const msk = getMoscowTime(today);
+  console.log('Локальное время:', today.toString());
+  console.log('Московское время:', msk.toString());
+  console.log('JD:', dateToJD(today));
+  console.log('Возраст Луны (дни):', moonAge(today).toFixed(2));
+  console.log('Фаза (0..1):', moonPhase(today).toFixed(3));
+  console.log('Знак зодиака:', getZodiacSign(today).name);
+  console.log('Название фазы:', getPhaseName(moonPhase(today)).name);
+  console.log('Восход/Заход:', moonRiseSet(today));
+}
 </script>
 </body>
 </html>
