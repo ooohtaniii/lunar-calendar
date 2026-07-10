@@ -1,8 +1,9 @@
 {
   "name": "Лунный календарь садовода",
   "short_name": "Лунный календарь",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Лунный календарь садовода и огородника с рекомендациями",
+  "start_url": "/lunar-calendar/index.html",
+  "scope": "/lunar-calendar/",
   "display": "standalone",
   "background_color": "#2d5016",
   "theme_color": "#2d5016",
