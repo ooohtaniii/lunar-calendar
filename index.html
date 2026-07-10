@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2d5016">
+<title>Лунный календарь садовода</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23ffd700'/%3E%3Ccircle cx='65' cy='50' r='40' fill='%232d5016'/%3E%3C/svg%3E">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(180deg, #1a3a0a 0%, #2d5016 50%, #3d6b1f 100%);
+    color: #f5f5dc;
+    min-height: 100vh;
+    padding-bottom: 80px;
+    overflow-x: hidden;
+  }
+  header {
+    background: rgba(0,0,0,0.3);
+    padding: 16px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,215,0,0.2);
+  }
+  header h1 { font-size: 1.3rem; color: #ffd700; }
+  header .date { font-size: 0.85rem; opacity: 0.8; margin-top: 4px; }
+
+  .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  .card {
+    background: rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255,215,0,0.15);
+    backdrop-filter: blur(10px);
+  }
+
+  .moon-display {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    justify-content: center;
+  }
+  .moon-visual {
+    width: 100px;
+    height: 100px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .moon-visual svg { width: 100%; height: 100%; }
+  .moon-info h2 { font-size: 1.2rem; color: #ffd700; margin-bottom: 6px; }
+  .moon-info p { font-size: 0.9rem; line-height: 1.5; opacity: 0.9; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .stat {
+    background: rgba(0,0,0,0.25);
+    padding: 12px 8px;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .stat-value { font-size: 1.1rem; font-weight: bold; color: #ffd700; }
+  .stat-label { font-size: 0.75rem; opacity: 0.8; margin-top: 4px; }
+
+  .recommendations h3 {
+    color: #ffd700;
+    margin-bottom: 12px;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rec-item {
+    background: rgba(0,0,0,0.2);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    line-height: 1.4;
+  }
+  .rec-icon { font-size: 1.2rem; flex-shrink: 0; }
+
+  .calendar {
+    background: rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .cal-header h3 { color: #ffd700; font-size: 1.05rem; }
+  .cal-nav { display: flex; gap: 8px; }
+  .cal-nav button {
+    background: rgba(255,215,0,0.2);
+    border: none;
+    color: #ffd700;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 8px;
+    text-align: center;
+    font-size: 0.75rem;
+    opacity: 0.7;
+  }
+  .cal-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s;
+  }
+  .cal-day:active { transform: scale(0.92); }
+  .cal-day.empty { visibility: hidden; }
+  .cal-day.today {
+    background: #ffd700;
+    color: #1a3a0a;
+    font-weight: bold;
+  }
+  .cal-day.selected { outline: 2px solid #ffd700; }
+  .cal-day .phase-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 2px;
+  }
+  .phase-new { background: #555; }
+  .phase-waxing { background: #ffd700; }
+  .phase-full { background: #fff; }
+  .phase-waning { background: #c0c0c0; }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+    font-size: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+
+  .plants-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .plant-card {
+    background: rgba(0,0,0,0.25);
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .plant-card:active { transform: scale(0.97); }
+  .plant-icon { font-size: 1.8rem; }
+  .plant-name { font-size: 0.9rem; margin-top: 4px; font-weight: 500; }
+  .plant-hint { font-size: 0.75rem; opacity: 0.75; margin-top: 2px; }
+
+  nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(15px);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255,215,0,0.2);
+    z-index: 100;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: #f5f5dc;
+    font-size: 0.7rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  nav button.active { opacity: 1; color: #ffd700; }
+  nav button .nav-icon { font-size: 1.4rem; }
+
+  .tab { display: none; }
+  .tab.active { display: block; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal.active { display: flex; }
+  .modal-content {
+    background: #2d5016;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    width: 100%;
+    border: 1px solid rgba(255,215,0,0.3);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal-content h3 { color: #ffd700; margin-bottom: 12px; }
+  .modal-content p { line-height: 1.6; margin-bottom: 10px; font-size: 0.9rem; }
+  .modal-close {
+    background: #ffd700;
+    color: #1a3a0a;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    margin-top: 12px;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .install-hint {
+    position: fixed;
+    bottom: 80px;
+    left: 16px;
+    right: 16px;
+    background: #ffd700;
+    color: #1a3a0a;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: none;
+    z-index: 50;
+  }
+  .install-hint.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌙 Лунный календарь садовода</h1>
+  <div class="date" id="headerDate"></div>
+</header>
+
+<div class="container">
+
+  <!-- ВКЛАДКА: СЕГОДНЯ -->
+  <div class="tab active" id="tab-today">
+    <div class="card">
+      <div class="moon-display">
+        <div class="moon-visual" id="moonVisual"></div>
+        <div class="moon-info">
+          <h2 id="moonPhaseName">—</h2>
+          <p id="moonPhaseDesc">—</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="lunarDay">—</div>
+          <div class="stat-label">Лунный день</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="zodiacSign">—</div>
+          <div class="stat-label">Луна в знаке</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="fertility">—</div>
+          <div class="stat-label">Плодородие</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card recommendations">
+      <h3>🌱 Рекомендации на сегодня</h3>
+      <div id="recommendations"></div>
+    </div>
+  </div>
+
+  <!-- ВКЛАДКА: КАЛЕНДАРЬ -->
+  <div class="tab" id="tab-calendar">
+    <div class="calendar">
+      <div class="cal-header">
+        <button class="cal-nav" style="background:none;border:none;">
+          <button id="prevMonth">‹</button>
+        </button>
+        <h3 id="calMonth">—</h3>
+        <div class="cal-nav">
+          <button id="nextMonth">›</button>
+        </div>
+      </div>
+      <div class="cal-weekdays">
+        <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+      </div>
+      <div class="cal-days" id="calDays"></div>
+      <div class="legend">
+        <div class="legend-item"><span class="phase-dot phase-new"></span>Новолуние</div>
+        <div class="legend-item"><span class="phase-dot phase-waxing"></span>Рост</div>
+        <div class="legend-item"><span class="phase-dot phase-full"></span>Полнолуние</div>
+        <div class="legend-item"><span class="phase-dot phase-waning"></span>Убывание</div>
+      </div>
+    </div>
+    <div class="card recommendations">
+      <h3 id="selectedDayTitle">Выберите день</h3>
+      <div id="selectedDayRecs">
+        <p style="opacity:0.7;font-size:0.9rem;">Нажмите на день в календаре, чтобы увидеть рекомендации.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВКЛАДКА: КУЛЬТУРЫ -->
+  <div class="tab" id="tab-plants">
+    <div class="card">
+      <h3 style="color:#ffd700;margin-bottom:12px;">🌿 Справочник культур</h3>
+      <p style="font-size:0.85rem;opacity:0.85;margin-bottom:16px;">
+        Нажмите на культуру, чтобы узнать, когда её лучше сажать по Луне.
+      </p>
+      <div class="plants-grid" id="plantsGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">—</h3>
+    <div id="modalBody"></div>
+    <button class="modal-close" onclick="closeModal()">Закрыть</button>
+  </div>
+</div>
+
+<!-- ПОДСКАЗКА УСТАНОВКИ -->
+<div class="install-hint" id="installHint">
+  📲 Добавьте на главный экран через меню браузера
+</div>
+
+<!-- НИЖНЯЯ НАВИГАЦИЯ -->
+<nav>
+  <button class="active" data-tab="today">
+    <span class="nav-icon">🌙</span>
+    <span>Сегодня</span>
+  </button>
+  <button data-tab="calendar">
+    <span class="nav-icon">📅</span>
+    <span>Календарь</span>
+  </button>
+  <button data-tab="plants">
+    <span class="nav-icon">🌱</span>
+    <span>Культуры</span>
+  </button>
+</nav>
+
+<script>
+/* =========================================================
+   АСТРОНОМИЧЕСКИЕ РАСЧЁТЫ (без внешних API)
+   Основано на алгоритмах Жана Мёсауса
+   ========================================================= */
+
+// Синодический месяц (средняя длительность)
+const SYNODIC_MONTH = 29.53058867;
+// Сидерический месяц (для расчёта знаков зодиака)
+const SIDEREAL_MONTH = 27.321661;
+// Опорная точка: известное новолуние (2000-01-06 18:14 UTC)
+const KNOWN_NEW_MOON_JD = 2451550.1;
+
+// Преобразование даты в юлианскую дату
+function dateToJD(date) {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + 1;
+  const d = date.getUTCDate() +
+            date.getUTCHours()/24 +
+            date.getUTCMinutes()/1440 +
+            date.getUTCSeconds()/86400;
+  let Y = y, M = m;
+  if (M <= 2) { Y--; M += 12; }
+  const A = Math.floor(Y / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (Y + 4716)) +
+         Math.floor(30.6001 * (M + 1)) +
+         d + B - 1524.5;
+}
+
+// Возраст Луны в днях (0..29.53)
+function moonAge(date) {
+  const jd = dateToJD(date);
+  let age = (jd - KNOWN_NEW_MOON_JD) % SYNODIC_MONTH;
+  if (age < 0) age += SYNODIC_MONTH;
+  return age;
+}
+
+// Фаза Луны (0..1)
+function moonPhase(date) {
+  return moonAge(date) / SYNODIC_MONTH;
+}
+
+// Название фазы
+function getPhaseName(phase) {
+  if (phase < 0.03 || phase > 0.97) return { name: 'Новолуние', emoji: '🌑', type: 'new' };
+  if (phase < 0.22) return { name: 'Молодая Луна', emoji: '🌒', type: 'waxing' };
+  if (phase < 0.28) return { name: 'Первая четверть', emoji: '🌓', type: 'waxing' };
+  if (phase < 0.47) return { name: 'Растущая Луна', emoji: '🌔', type: 'waxing' };
+  if (phase < 0.53) return { name: 'Полнолуние', emoji: '🌕', type: 'full' };
+  if (phase < 0.72) return { name: 'Убывающая Луна', emoji: '🌖', type: 'waning' };
+  if (phase < 0.78) return { name: 'Последняя четверть', emoji: '🌗', type: 'waning' };
+  return { name: 'Старая Луна', emoji: '🌘', type: 'waning' };
+}
+
+// Лунный день (1..30)
+function lunarDay(date) {
+  const age = moonAge(date);
+  return Math.floor(age) + 1;
+}
+
+// Эклиптическая долгота Луны (упрощённо, для знаков зодиака)
+function moonLongitude(date) {
+  const jd = dateToJD(date);
+  const T = (jd - 2451545.0) / 36525;
+  // Средняя longitude Луны
+  let L0 = 218.316 + 481267.881 * T;
+  // Аномалия
+  const M = (134.9 + 477198.85 * T) % 360;
+  // Элонгация от Солнца
+  const D = (297.85 + 445267.11 * T) % 360;
+  // Основные поправки (упрощённо)
+  let lon = L0
+          + 6.29 * Math.sin(M * Math.PI/180)
+          - 1.27 * Math.sin((2*D - M) * Math.PI/180)
+          + 0.66 * Math.sin(2*D * Math.PI/180);
+  return ((lon % 360) + 360) % 360;
+}
+
+// Знак зодиака Луны
+const ZODIAC = [
+  { name: 'Овен',       symbol: '♈', fertile: 'low',  element: 'fire'  },
+  { name: 'Телец',      symbol: '♉', fertile: 'mid',  element: 'earth' },
+  { name: 'Близнецы',   symbol: '♊', fertile: 'low',  element: 'air'   },
+  { name: 'Рак',        symbol: '♋', fertile: 'high', element: 'water' },
+  { name: 'Лев',        symbol: '♌', fertile: 'low',  element: 'fire'  },
+  { name: 'Дева',       symbol: '♍', fertile: 'low',  element: 'earth' },
+  { name: 'Весы',       symbol: '♎', fertile: 'mid',  element: 'air'   },
+  { name: 'Скорпион',   symbol: '♏', fertile: 'high', element: 'water' },
+  { name: 'Стрелец',    symbol: '♐', fertile: 'low',  element: 'fire'  },
+  { name: 'Козерог',    symbol: '♑', fertile: 'mid',  element: 'earth' },
+  { name: 'Водолей',    symbol: '♒', fertile: 'low',  element: 'air'   },
+  { name: 'Рыбы',       symbol: '♓', fertile: 'high', element: 'water' }
+];
+
+function getZodiacSign(date) {
+  const lon = moonLongitude(date);
+  const idx = Math.floor(lon / 30) % 12;
+  return ZODIAC[idx];
+}
+
+// Плодородие знака
+function fertilityLabel(fertile) {
+  if (fertile === 'high') return { text: 'Высокое', emoji: '🟢' };
+  if (fertile === 'mid')  return { text: 'Среднее', emoji: '🟡' };
+  return { text: 'Низкое', emoji: '🔴' };
+}
+
+/* =========================================================
+   РЕНДЕРИНГ ВИЗУАЛИЗАЦИИ ЛУНЫ (SVG)
+   ========================================================= */
+function renderMoon(phase) {
+  // phase: 0 = новолуние, 0.5 = полнолуние
+  const R = 45;
+  const cx = 50, cy = 50;
+  // Вычисляем "ширину" освещённой части
+  // Используем параметрическое представление терминатора
+  const illumination = Math.cos(phase * 2 * Math.PI); // от 1 до -1
+  // Рисуем Луну как два полукруга + эллипс терминатора
+  let svg = `<svg viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id="moonGrad" cx="35%" cy="35%">
+        <stop offset="0%" stop-color="#fff8dc"/>
+        <stop offset="100%" stop-color="#d4af37"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="${R}" fill="#222" stroke="#555" stroke-width="0.5"/>`;
+
+  if (phase < 0.5) {
+    // Растущая: освещена правая часть
+    const rx = Math.abs(illumination) * R;
+    if (phase < 0.25) {
+      // Серп растущий (освещено меньше половины справа)
+      svg += `<path d="M 50 5 A 45 45 0 0 1 50 95 A ${rx} 45 0 0 0 50 5 Z" fill="url(#moonGrad)"/>`;
+    } else {
+      // Больше половины справа
+      svg += `<path d="M 50 5 A 45 45 0 0 1 50 95 A ${rx} 45 0 0 1 50 5 Z" fill="url(#moonGrad)"/>`;
+    }
+  } else {
+    // Убывающая: освещена левая часть
+    const rx = Math.abs(illumination) * R;
+    if (phase < 0.75) {
+      // Больше половины слева
+      svg += `<path d="M 50 5 A 45 45 0 0 0 50 95 A ${rx} 45 0 0 0 50 5 Z" fill="url(#moonGrad)"/>`;
+    } else {
+      // Серп убывающий
+      svg += `<path d="M 50 5 A 45 45 0 0 0 50 95 A ${rx} 45 0 0 1 50 5 Z" fill="url(#moonGrad)"/>`;
+    }
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+/* =========================================================
+   РЕКОМЕНДАЦИИ ДЛЯ САДОВОДА
+   ========================================================= */
+function getRecommendations(date) {
+  const phase = moonPhase(date);
+  const phaseInfo = getPhaseName(phase);
+  const sign = getZodiacSign(date);
+  const fertility = fertilityLabel(sign.fertile);
+  const recs = [];
+
+  // Общие рекомендации по фазе
+  if (phaseInfo.type === 'new') {
+    recs.push({ icon: '🚫', text: 'Не сажайте и не пересаживайте — Луна в покое.' });
+    recs.push({ icon: '✂️', text: 'Хорошее время для санитарной обрезки и борьбы с вредителями.' });
+  } else if (phaseInfo.type === 'waxing') {
+    recs.push({ icon: '🌱', text: 'Соки движутся вверх — сажайте культуры, дающие плоды над землёй.' });
+    recs.push({ icon: '🥬', text: 'Подходит для зелени, томатов, огурцов, перцев, цветов.' });
+    recs.push({ icon: '💧', text: 'Полив и подкормка усваиваются лучше.' });
+  } else if (phaseInfo.type === 'full') {
+    recs.push({ icon: '🍅', text: 'Пик концентрации соков — собирайте урожай.' });
+    recs.push({ icon: '🫙', text: 'Отличное время для консервирования и заготовок.' });
+    recs.push({ icon: '🚫', text: 'Не рекомендуется обрезка и посадка.' });
+  } else { // waning
+    recs.push({ icon: '🥕', text: 'Соки идут к корням — сажайте корнеплоды и луковичные.' });
+    recs.push({ icon: '🌳', text: 'Хорошо для посадки деревьев, кустарников, деления корней.' });
+    recs.push({ icon: '✂️', text: 'Обрезка замедляет рост — идеальный момент.' });
+  }
+
+  // Уточнения по знаку
+  if (sign.fertile === 'high') {
+    recs.push({ icon: '✨', text: `Луна в ${sign.name} — знак повышенной плодородности. Посевы дадут щедрый урожай.` });
+  } else if (sign.fertile === 'low') {
+    recs.push({ icon: '🧹', text: `Луна в ${sign.name} — бесплодный знак. Займитесь прополкой, рыхлением, борьбой с сорняками.` });
+  }
+
+  return recs;
+}
+
+/* =========================================================
+   СПРАВОЧНИК КУЛЬТУР
+   ========================================================= */
+const PLANTS = [
+  { icon: '🍅', name: 'Томаты',
+    desc: 'Сажайте на растущей Луне в плодородных знаках (Рак, Скорпион, Рыбы). Хороший результат — в Тельце, Весах, Козероге.',
+    best: 'Растущая Луна, водные и земляные знаки' },
+  { icon: '🥒', name: 'Огурцы',
+    desc: 'Сейте на растущей Луне. Лучше всего — в Раке или Скорпионе. Избегайте новолуния и полнолуния.',
+    best: 'Растущая Луна, Рак/Скорпион' },
+  { icon: '🥕', name: 'Морковь',
+    desc: 'Корнеплод — сажайте на убывающей Луне. Знаки Девы, Козерога, Тельца усиливают урожай корней.',
+    best: 'Убывающая Луна, Дева/Козерог' },
+  { icon: '🥬', name: 'Капуста',
+    desc: 'Сажайте на растущей Луне в водных знаках (Рак, Скорпион, Рыбы) — кочаны будут крупными и сочными.',
+    best: 'Растущая Луна, Рак/Рыбы' },
+  { icon: '🧅', name: 'Лук/Чеснок',
+    desc: 'На убывающей Луне, в знаках земли и воздуха. Стрелкующийся лук — на растущей.',
+    best: 'Убывающая Луна, Дева/Козерог' },
+  { icon: '🥔', name: 'Картофель',
+    desc: 'Сажайте на убывающей Луне в Тельце, Деве или Козероге — урожай будет крупным.',
+    best: 'Убывающая Луна, Телец/Дева' },
+  { icon: '🌶️', name: 'Перец',
+    desc: 'Как и томаты — на растущей Луне в плодородных знаках. Не сажайте в бесплодные дни.',
+    best: 'Растущающая Луна, Рак/Скорпион' },
+  { icon: '🌿', name: 'Зелень',
+    desc: 'Укроп, петрушка, салат — на растущей Луне в водных знаках. Быстрый рост гарантирован.',
+    best: 'Растущая Луна, Рак/Рыбы' },
+  { icon: '🍓', name: 'Клубника',
+    desc: 'Усы сажайте на убывающей Луне в Раке, Скорпионе или Рыбах. Ягоды будут сладкими.',
+    best: 'Убывающая Луна, водные знаки' },
+  { icon: '🌳', name: 'Деревья',
+    desc: 'Сажайте и обрезайте на убывающей Луне. Осенняя посадка — в знаках земли.',
+    best: 'Убывающая Луна, Телец/Дева' },
+  { icon: '🌹', name: 'Цветы',
+    desc: 'Однолетники — на растущей Луне в Весах, Рыбах, Раке. Луковичные — на убывающей.',
+    best: 'Зависит от типа цветка' },
+  { icon: '🎃', name: 'Тыквы',
+    desc: 'На растущей Луне в Раке или Скорпионе. Плоды вырастут крупными и долго хранятся.',
+    best: 'Растущая Луна, Рак/Скорпион' }
+];
+
+/* =========================================================
+   ИНТЕРФЕЙС
+   ========================================================= */
+const MONTHS = ['января','февраля','марта','апреля','мая','июня',
+                'июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                    'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+
+let viewDate = new Date();
+let calMonth = new Date();
+calMonth.setDate(1);
+let selectedDate = null;
+
+function formatDate(d) {
+  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function updateToday() {
+  const now = new Date();
+  document.getElementById('headerDate').textContent = formatDate(now);
+
+  const phase = moonPhase(now);
+  const phaseInfo = getPhaseName(now);
+  const sign = getZodiacSign(now);
+  const fertility = fertilityLabel(sign.fertile);
+
+  document.getElementById('moonVisual').innerHTML = renderMoon(phase);
+  document.getElementById('moonPhaseName').textContent = `${phaseInfo.emoji} ${phaseInfo.name}`;
+  document.getElementById('moonPhaseDesc').textContent =
+    `Освещено: ${Math.round(Math.abs(Math.cos(phase * Math.PI)) * 100)}%`;
+  document.getElementById('lunarDay').textContent = lunarDay(now);
+  document.getElementById('zodiacSign').textContent = `${sign.symbol} ${sign.name}`;
+  document.getElementById('fertility').textContent = `${fertility.emoji} ${fertility.text}`;
+
+  const recs = getRecommendations(now);
+  document.getElementById('recommendations').innerHTML = recs.map(r =>
+    `<div class="rec-item"><span class="rec-icon">${r.icon}</span><span>${r.text}</span></div>`
+  ).join('');
+}
+
+function renderCalendar() {
+  const year = calMonth.getFullYear();
+  const month = calMonth.getMonth();
+  document.getElementById('calMonth').textContent = `${MONTHS_NOM[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  // Понедельник = 0
+  let startWeekday = (firstDay.getDay() + 6) % 7;
+
+  const container = document.getElementById('calDays');
+  container.innerHTML = '';
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  for (let i = 0; i < startWeekday; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'cal-day empty';
+    container.appendChild(empty);
+  }
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(year, month, d);
+    const phase = moonPhase(date);
+    const phaseInfo = getPhaseName(date);
+
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+    if (date.getTime() === today.getTime()) el.classList.add('today');
+    if (selectedDate && date.getTime() === selectedDate.getTime()) el.classList.add('selected');
+
+    el.innerHTML = `
+      <div>${d}</div>
+      <div class="phase-dot phase-${phaseInfo.type}"></div>
+    `;
+    el.addEventListener('click', () => selectDay(date));
+    container.appendChild(el);
+  }
+}
+
+function selectDay(date) {
+  selectedDate = date;
+  renderCalendar();
+
+  const phaseInfo = getPhaseName(date);
+  const sign = getZodiacSign(date);
+  document.getElementById('selectedDayTitle').innerHTML =
+    `${phaseInfo.emoji} ${date.getDate()} ${MONTHS[date.getMonth()]} — ${phaseInfo.name}`;
+
+  const recs = getRecommendations(date);
+  const signNote = `<div class="rec-item"><span class="rec-icon">${sign.symbol}</span><span>Луна в знаке <b>${sign.name}</b> (${fertilityLabel(sign.fertile).text.toLowerCase()} плодородие)</span></div>`;
+  document.getElementById('selectedDayRecs').innerHTML =
+    signNote + recs.map(r =>
+      `<div class="rec-item"><span class="rec-icon">${r.icon}</span><span>${r.text}</span></div>`
+    ).join('');
+}
+
+function renderPlants() {
+  const grid = document.getElementById('plantsGrid');
+  grid.innerHTML = PLANTS.map((p, i) => `
+    <div class="plant-card" onclick="showPlant(${i})">
+      <div class="plant-icon">${p.icon}</div>
+      <div class="plant-name">${p.name}</div>
+      <div class="plant-hint">${p.best}</div>
+    </div>
+  `).join('');
+}
+
+function showPlant(idx) {
+  const p = PLANTS[idx];
+  document.getElementById('modalTitle').textContent = `${p.icon} ${p.name}`;
+  document.getElementById('modalBody').innerHTML = `
+    <p><b>Когда сажать:</b> ${p.best}</p>
+    <p>${p.desc}</p>
+  `;
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+// Навигация
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.getElementById('prevMonth').addEventListener('click', () => {
+  calMonth.setMonth(calMonth.getMonth() - 1);
+  renderCalendar();
+});
+document.getElementById('nextMonth').addEventListener('click', () => {
+  calMonth.setMonth(calMonth.getMonth() + 1);
+  renderCalendar();
+});
+
+// Инициализация
+updateToday();
+renderCalendar();
+renderPlants();
+
+// Обновление раз в минуту
+setInterval(updateToday, 60000);
+
+/* =========================================================
+   PWA: Service Worker и установка
+   ========================================================= */
+if ('serviceWorker' in navigator) {
+  // Регистрируем SW, если файл есть
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installHint').classList.add('show');
+  setTimeout(() => document.getElementById('installHint').classList.remove('show'), 8000);
+});
+</script>
+</body>
+</html>
